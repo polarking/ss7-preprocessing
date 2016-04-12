@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Simple script to pre-process an SS7 network capture.
 # Input: Wireshark/tshark pcap file
-# Output: Csv file that is dechunked
+# Output: Dechunked csv file
 
 
 import sys, csv, os, subprocess
