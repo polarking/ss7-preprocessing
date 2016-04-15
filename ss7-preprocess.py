@@ -5,6 +5,7 @@
 
 
 import sys, csv, os, subprocess
+from datetime import datetime, timedelta
 
 
 def sctpdechunk(working_dir, in_file_path, out_file_path):
@@ -44,15 +45,24 @@ def column_merge(in_file_path, out_file_path, time_diff):
   in_file = open(in_file_path, 'rb')
   out_file = open(out_file_path, 'wb')
 
+  num_lines = sum(1 for line in open(in_file_path, 'rb'))
+
   csv_reader = csv.reader(in_file, delimiter=',', quotechar='"')
+  csv_reader_ahead = csv.reader(in_file, delimiter=',', quotechar='"')
   csv_writer = csv.writer(out_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_ALL)
 
-  header = "no,time_epoch,opc,dpc,length,map.message,sccp.calling.digits,sccp.calling.ssn,sccp.called.digits,sccp.called.ssn,imsi,msisdn,new_area,lac"
+  header = "no,timestamp,opc,dpc,length,map.message,sccp.calling.digits,sccp.calling.ssn,sccp.called.digits,sccp.called.ssn,imsi,msisdn,new_area,lac"
 
   csv_writer.writerow(header.split(','))
 
   # Skip read header
   csv_reader.next()
+
+  # One reader ahead to read time diffs
+  csv_reader_ahead.next()
+  csv_reader_ahead.next()
+
+  base_time = datetime(2016, 1, 1, 0, 0, 0) # 1.1.2016 00:00:00
 
   for row in csv_reader:
     imsi_merged = ""
@@ -101,9 +111,24 @@ def column_merge(in_file_path, out_file_path, time_diff):
       new_area = "3"
 
     time = row[1]
-    time = float(time) / float(time_diff)
+    time_shift = float(time) / float(time_diff)
 
-    new_row = row_num, time, row[2], row[3], row[4], row[5].strip(), row[6], row[7], row[8], row[9], imsi_merged, msisdn_merged, new_area, lac
+    if row_num < (num_lines - 2):
+      next_row = csv_reader_ahead.next()
+    else:
+      next_row = []
+
+    if next_row:
+      time_next = next_row[1]
+      time_next = float(time_next) / float(time_diff)
+      message_time_diff = time_next - time_shift
+    else:
+      message_time_diff = time_shift - float(time)
+
+    time_delta = timedelta(0, message_time_diff)
+    base_time = base_time + time_delta
+
+    new_row = row_num, base_time.__str__(), row[2], row[3], row[4], row[5].strip(), row[6], row[7], row[8], row[9], imsi_merged, msisdn_merged, new_area, lac
 
     csv_writer.writerow(new_row)
 
@@ -127,7 +152,7 @@ def get_last_row(csv_file_path):
 def read_time_values(out_file_path):
   lastline, num_lines = get_last_row(out_file_path)
   time_max = lastline[1]
-  month_sec = 2419200
+  month_sec = 2678400
   diff = float(time_max) / float(month_sec)
   return diff
 
@@ -148,7 +173,6 @@ sctpdechunk(working_dir, in_file_path, dechunk_file)
 pcap_to_csv(dechunk_file, csv_file)
 time_diff = read_time_values(csv_file)
 column_merge(csv_file, out_file_path, time_diff)
-
 
 os.remove(dechunk_file)
 os.remove(csv_file)
