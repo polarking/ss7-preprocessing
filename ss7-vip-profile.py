@@ -7,6 +7,7 @@ from datetime import datetime,timedelta
 
 lac_distances = {
   "8138-8161": 12,
+  "8161-8161": 12,
   "8161-8189": 8,
   "8161-9321": 14,
   "8189-9321": 9,
@@ -18,6 +19,7 @@ lac_distances = {
   "6593-9321": 287,
   "6593-9343": 137,
   "6593-9385": 198,
+  "6593-6593": 50,
 }
 
 
@@ -30,7 +32,7 @@ def user_profile(in_file_path, out_file_path):
 
   #header = "no,timestamp,opc,dpc,length,map.message,sccp.calling.digits,sccp.calling.ssn,sccp.called.digits,sccp.called.ssn,imsi,msisdn,new_area,lac"
   header = "no,timestamp,length,distance_traveled,last_update"
-  csv_writer.writerow(header)
+  csv_writer.writerow(header.split(','))
 
   subscriber_imsi = "24201111111110"
   map_update_location = "invoke updateLocation"
@@ -43,7 +45,12 @@ def user_profile(in_file_path, out_file_path):
 
   for row in csv_reader:
     row_num = row[0]
-    timestamp = datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S.%f")
+
+    try:
+      timestamp = datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+      timestamp = datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S")
+
     opc = row[2]
     dpc = row[3]
     byte_length = row[4]
@@ -77,7 +84,7 @@ def user_profile(in_file_path, out_file_path):
       last_update = timestamp
       last_lac = new_lac
 
-    row_counter += 1
+      row_counter += 1
 
   in_file.close()
   out_file.close()
@@ -88,8 +95,6 @@ def lac_distance(lac_a, lac_b):
     t = lac_a
     lac_a = lac_b
     lac_b = t
-  elif lac_a == lac_b:
-    return 0
 
   lac_distance_val = str(lac_a) + "-" + str(lac_b)
   return lac_distances[lac_distance_val]

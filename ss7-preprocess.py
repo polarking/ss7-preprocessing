@@ -43,12 +43,13 @@ def pcap_to_csv(in_file_path, out_file_path):
 def column_merge(in_file_path, out_file_path, time_diff):
   row_num = 0
   in_file = open(in_file_path, 'rb')
+  in_file2 = open(in_file_path, 'rb')
   out_file = open(out_file_path, 'wb')
 
   num_lines = sum(1 for line in open(in_file_path, 'rb'))
 
   csv_reader = csv.reader(in_file, delimiter=',', quotechar='"')
-  csv_reader_ahead = csv.reader(in_file, delimiter=',', quotechar='"')
+  csv_reader_ahead = csv.reader(in_file2, delimiter=',', quotechar='"')
   csv_writer = csv.writer(out_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_ALL)
 
   header = "no,timestamp,opc,dpc,length,map.message,sccp.calling.digits,sccp.calling.ssn,sccp.called.digits,sccp.called.ssn,imsi,msisdn,new_area,lac"
@@ -60,11 +61,13 @@ def column_merge(in_file_path, out_file_path, time_diff):
 
   # One reader ahead to read time diffs
   csv_reader_ahead.next()
-  csv_reader_ahead.next()
 
   base_time = datetime(2016, 1, 1, 0, 0, 0) # 1.1.2016 00:00:00
 
-  for row in csv_reader:
+  for row in csv_reader_ahead:
+    if row_num != 0:
+      row_prev = csv_reader.next()
+
     imsi_merged = ""
     msisdn_merged = ""
 
@@ -113,17 +116,12 @@ def column_merge(in_file_path, out_file_path, time_diff):
     time = row[1]
     time_shift = float(time) / float(time_diff)
 
-    if row_num < (num_lines - 2):
-      next_row = csv_reader_ahead.next()
-    else:
-      next_row = []
-
-    if next_row:
-      time_next = next_row[1]
-      time_next = float(time_next) / float(time_diff)
-      message_time_diff = time_next - time_shift
-    else:
+    if row_num == 0:
       message_time_diff = time_shift - float(time)
+    else: 
+      time_prev = row_prev[1]
+      time_prev_shift = float(time_prev) / float(time_diff)
+      message_time_diff = time_shift - time_prev_shift
 
     time_delta = timedelta(0, message_time_diff)
     base_time = base_time + time_delta
@@ -152,7 +150,7 @@ def get_last_row(csv_file_path):
 def read_time_values(out_file_path):
   lastline, num_lines = get_last_row(out_file_path)
   time_max = lastline[1]
-  month_sec = 2678400
+  month_sec = 2419200
   diff = float(time_max) / float(month_sec)
   return diff
 
